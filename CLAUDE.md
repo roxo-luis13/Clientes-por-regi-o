@@ -75,8 +75,12 @@ processado (`companies_data.js`).
 - **Clique numa empresa** (na lista ou direto no mapa) → abre painel de detalhes
   completo (telefone, e-mail, responsável, área, tipo, "cliente de", indicador de
   telemetria, coordenadas)
-- Filtros: status (chips), tipo de empresa (select), área de atuação (select),
-  responsável (select), busca por texto (nome/cidade/estado)
+- Filtros: status, tipo de empresa, área de atuação e responsável — todos como chips
+  (mesma estética visual; status é multi-seleção, os demais são seleção única com um
+  chip "Todos"/"Todas" para limpar aquele filtro específico), busca por texto
+  (nome/cidade/estado)
+- Painel de filtros/busca é **retrátil** (clique na barra "// filtros e busca" no topo
+  do painel) — começa recolhido em telas ≤720px para não ocupar a tela no mobile
 - Busca por texto **não oculta** empresas próximas — só centraliza/dá zoom no mapa
   sobre os resultados encontrados (debounce de 500ms), mantendo a vizinhança visível.
   Os filtros de status/tipo/área/responsável continuam ocultando normalmente.
