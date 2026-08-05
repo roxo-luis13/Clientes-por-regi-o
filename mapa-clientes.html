@@ -430,26 +430,50 @@
   });
 
   var searchInput = document.getElementById('search-input');
+  var searchFlyTimeout = null;
 
-  function applyFilters(){
-    var q = searchInput.value.trim().toLowerCase();
+  function chipFiltered(){
     var tipoVal = tipoSelect.value;
     var areaVal = areaSelect.value;
-    var filtered = markers.filter(function(m){
+    return markers.filter(function(m){
       var c = m.companyData;
       if(!activeStatus.has(c.s)) return false;
       if(tipoVal && c.t !== tipoVal) return false;
       if(areaVal && c.sh !== areaVal) return false;
-      if(q){
-        var hay = ((c.n||'') + ' ' + (c.c||'') + ' ' + (c.e||'')).toLowerCase();
-        if(hay.indexOf(q) === -1) return false;
-      }
       return true;
     });
-    renderMarkers(filtered);
   }
 
-  searchInput.addEventListener('input', applyFilters);
+  // A busca por texto não oculta empresas próximas do mapa — ela só
+  // centraliza/dá zoom no resultado, mantendo a vizinhança visível.
+  function applyFilters(){
+    var filtered = chipFiltered();
+    renderMarkers(filtered);
+    flyToSearchMatches(filtered);
+  }
+
+  function flyToSearchMatches(filtered){
+    var q = searchInput.value.trim().toLowerCase();
+    if(!q) return;
+    var matches = filtered.filter(function(m){
+      var c = m.companyData;
+      var hay = ((c.n||'') + ' ' + (c.c||'') + ' ' + (c.e||'')).toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+    if(matches.length === 0) return;
+    if(matches.length === 1){
+      var c = matches[0].companyData;
+      map.flyTo([c.lat, c.lon], Math.max(map.getZoom(), 12), { duration:0.6 });
+    } else {
+      var bounds = L.latLngBounds(matches.map(function(m){ return m.getLatLng(); }));
+      map.flyToBounds(bounds, { padding:[80,80], maxZoom:13, duration:0.6 });
+    }
+  }
+
+  searchInput.addEventListener('input', function(){
+    clearTimeout(searchFlyTimeout);
+    searchFlyTimeout = setTimeout(function(){ flyToSearchMatches(chipFiltered()); }, 500);
+  });
   tipoSelect.addEventListener('change', applyFilters);
   areaSelect.addEventListener('change', applyFilters);
   document.getElementById('reset-filters').addEventListener('click', function(){
