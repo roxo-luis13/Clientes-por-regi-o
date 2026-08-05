@@ -296,6 +296,10 @@
         <div class="fg-title">Área de atuação</div>
         <select id="area-select"><option value="">Todas as áreas</option></select>
       </div>
+      <div class="filter-group">
+        <div class="fg-title">Responsável</div>
+        <select id="resp-select"><option value="">Todos os responsáveis</option></select>
+      </div>
       <div id="reset-filters">Limpar filtros</div>
     </div>
     <div id="result-count"><b id="result-n">0</b> empresas exibidas no mapa</div>
@@ -423,10 +427,16 @@
     var o = document.createElement('option'); o.value = t; o.textContent = t; tipoSelect.appendChild(o);
   });
 
-  var areas = Array.from(new Set(COMPANIES.map(c=>c.sh).filter(Boolean))).sort();
+  var areas = Array.from(new Set(COMPANIES.map(c=>c.a).filter(Boolean))).sort();
   var areaSelect = document.getElementById('area-select');
   areas.forEach(function(a){
     var o = document.createElement('option'); o.value = a; o.textContent = a; areaSelect.appendChild(o);
+  });
+
+  var responsaveis = Array.from(new Set(COMPANIES.map(c=>c.resp).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b, 'pt-BR'); });
+  var respSelect = document.getElementById('resp-select');
+  responsaveis.forEach(function(r){
+    var o = document.createElement('option'); o.value = r; o.textContent = r; respSelect.appendChild(o);
   });
 
   var searchInput = document.getElementById('search-input');
@@ -435,11 +445,13 @@
   function chipFiltered(){
     var tipoVal = tipoSelect.value;
     var areaVal = areaSelect.value;
+    var respVal = respSelect.value;
     return markers.filter(function(m){
       var c = m.companyData;
       if(!activeStatus.has(c.s)) return false;
       if(tipoVal && c.t !== tipoVal) return false;
-      if(areaVal && c.sh !== areaVal) return false;
+      if(areaVal && c.a !== areaVal) return false;
+      if(respVal && c.resp !== respVal) return false;
       return true;
     });
   }
@@ -476,11 +488,13 @@
   });
   tipoSelect.addEventListener('change', applyFilters);
   areaSelect.addEventListener('change', applyFilters);
+  respSelect.addEventListener('change', applyFilters);
   document.getElementById('reset-filters').addEventListener('click', function(){
     activeStatus = new Set(statuses);
     Array.from(chipRow.children).forEach(ch=>ch.classList.add('active'));
     tipoSelect.value = '';
     areaSelect.value = '';
+    respSelect.value = '';
     searchInput.value = '';
     applyFilters();
   });
@@ -532,7 +546,7 @@
   }
 
   function openDetail(c){
-    document.getElementById('dp-id').textContent = 'ID ' + (c.id != null ? c.id : '—') + ' · ' + (c.sh || '');
+    document.getElementById('dp-id').textContent = 'ID ' + (c.id != null ? c.id : '—') + ' · ' + (c.a || '');
     document.getElementById('dp-name').textContent = c.n || 'Sem nome';
     document.getElementById('dp-body').style.padding = '16px 20px';
 
