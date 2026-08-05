@@ -129,9 +129,18 @@
   #search-input::placeholder{ color:var(--text-dim); }
   #search-input:focus{ border-color:var(--accent-amber); }
 
-  #filter-panel{ padding:12px; display:flex; flex-direction:column; gap:12px; max-height:min(52vh, 460px); overflow-y:auto; }
+  #filter-panel{ padding:12px; display:flex; flex-direction:column; gap:10px; max-height:min(52vh, 460px); overflow-y:auto; }
   .filter-group .fg-title{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:0.1em; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; }
-  .chip-row{ display:flex; flex-wrap:wrap; gap:5px; }
+  .filter-group .fg-title.fg-toggle{
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;
+    margin-bottom:0; padding:4px 0;
+  }
+  .filter-group .fg-title.fg-toggle:hover{ color:var(--text-primary); }
+  .filter-group .fg-title .fg-icon{ color:var(--accent-amber); font-size:9px; transition: transform .18s ease; }
+  .filter-group.expanded .fg-title .fg-icon{ transform:rotate(90deg); }
+  .filter-group .chip-row{ display:none; margin-top:8px; }
+  .filter-group.expanded .chip-row{ display:flex; }
+  .chip-row{ flex-wrap:wrap; gap:5px; }
   .chip{
     font-family:var(--font-mono); font-size:11px; padding:4px 9px; border-radius:2px;
     border:1px solid var(--grid-line-strong); color:var(--text-muted); cursor:pointer; user-select:none;
@@ -298,19 +307,19 @@
       </div>
       <div class="panel-card" id="filter-panel">
         <div class="filter-group">
-          <div class="fg-title">Status</div>
+          <div class="fg-title fg-toggle">Status<span class="fg-icon">▸</span></div>
           <div class="chip-row" id="status-chips"></div>
         </div>
         <div class="filter-group">
-          <div class="fg-title">Tipo de empresa</div>
+          <div class="fg-title fg-toggle">Tipo de empresa<span class="fg-icon">▸</span></div>
           <div class="chip-row" id="tipo-chips"></div>
         </div>
         <div class="filter-group">
-          <div class="fg-title">Área de atuação</div>
+          <div class="fg-title fg-toggle">Área de atuação<span class="fg-icon">▸</span></div>
           <div class="chip-row" id="area-chips"></div>
         </div>
         <div class="filter-group">
-          <div class="fg-title">Responsável</div>
+          <div class="fg-title fg-toggle">Responsável<span class="fg-icon">▸</span></div>
           <div class="chip-row" id="resp-chips"></div>
         </div>
         <div id="reset-filters">Limpar filtros</div>
@@ -536,6 +545,15 @@
   setControlsCollapsed(window.innerWidth <= 720);
   controlsToggle.addEventListener('click', function(){
     setControlsCollapsed(!controlsEl.classList.contains('collapsed'));
+  });
+
+  // cada grupo de filtro (Status, Tipo, Área, Responsável) começa
+  // minimizado — só mostra os chips (e permite selecionar) depois de
+  // clicar no título do grupo
+  Array.from(document.querySelectorAll('.filter-group .fg-toggle')).forEach(function(title){
+    title.addEventListener('click', function(){
+      title.closest('.filter-group').classList.toggle('expanded');
+    });
   });
 
   // ---------- detail panel ----------

@@ -80,6 +80,9 @@ processado (`companies_data.js`).
   inclui/exclui aquele item), busca por texto (nome/cidade/estado)
 - Painel de filtros/busca é **retrátil** (clique na barra "// filtros e busca" no topo
   do painel) — começa recolhido em telas ≤720px para não ocupar a tela no mobile
+- Cada grupo de filtro (Status, Tipo, Área, Responsável) também é retrátil
+  individualmente e **começa minimizado** — clique no título do grupo (ex.: "Status")
+  pra expandir e ver/selecionar os chips daquele grupo
 - Busca por texto **não oculta** empresas próximas — só centraliza/dá zoom no mapa
   sobre os resultados encontrados (debounce de 500ms), mantendo a vizinhança visível.
   Os filtros de status/tipo/área/responsável continuam ocultando normalmente.
