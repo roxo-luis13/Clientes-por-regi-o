@@ -143,7 +143,6 @@
   .chip[data-status="Não é Cliente"].active{ background:var(--status-prospect); }
   .chip[data-status="Inativo"].active{ background:var(--status-inativo); color:var(--text-primary); }
   .chip[data-tipo].active, .chip[data-area].active, .chip[data-resp].active{ background:var(--accent-amber); }
-  .chip.chip-all.active{ background:rgba(255,255,255,0.12); color:var(--text-primary); font-weight:600; border-color:var(--text-muted); }
 
   #reset-filters{
     font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em;
@@ -436,71 +435,53 @@
     chipRow.appendChild(chip);
   });
 
-  // single-select chip group: one "Todos" chip + one chip per value,
-  // same visual language as the Status chips above
-  function buildSingleSelectChips(containerId, values, dataAttr, allLabel){
+  // multi-select chip group: every value starts active (= sem filtro), clique
+  // em um chip inclui/exclui aquele valor — mesmo comportamento do Status
+  function buildMultiSelectChips(containerId, values, dataAttr){
     var container = document.getElementById(containerId);
-    var selected = '';
-    var chips = [];
-
-    var allChip = document.createElement('div');
-    allChip.className = 'chip chip-all active';
-    allChip.textContent = allLabel;
-    container.appendChild(allChip);
-    chips.push({ el: allChip, value: '' });
+    var active = new Set(values);
 
     values.forEach(function(v){
       var chip = document.createElement('div');
-      chip.className = 'chip';
+      chip.className = 'chip active';
       chip.dataset[dataAttr] = v;
       chip.textContent = v;
+      chip.addEventListener('click', function(){
+        if(active.has(v)){ active.delete(v); chip.classList.remove('active'); }
+        else { active.add(v); chip.classList.add('active'); }
+        applyFilters();
+      });
       container.appendChild(chip);
-      chips.push({ el: chip, value: v });
-    });
-
-    container.addEventListener('click', function(e){
-      var el = e.target.closest('.chip');
-      if(!el) return;
-      var match = chips.find(function(c){ return c.el === el; });
-      if(!match) return;
-      chips.forEach(function(c){ c.el.classList.remove('active'); });
-      match.el.classList.add('active');
-      selected = match.value;
-      applyFilters();
     });
 
     return {
-      get value(){ return selected; },
+      has: function(v){ return active.has(v); },
       reset: function(){
-        chips.forEach(function(c){ c.el.classList.remove('active'); });
-        chips[0].el.classList.add('active');
-        selected = '';
+        active = new Set(values);
+        Array.from(container.children).forEach(function(ch){ ch.classList.add('active'); });
       }
     };
   }
 
   var tipos = Array.from(new Set(COMPANIES.map(c=>c.t).filter(Boolean))).sort();
-  var tipoChips = buildSingleSelectChips('tipo-chips', tipos, 'tipo', 'Todos');
+  var tipoChips = buildMultiSelectChips('tipo-chips', tipos, 'tipo');
 
   var areas = Array.from(new Set(COMPANIES.map(c=>c.a).filter(Boolean))).sort();
-  var areaChips = buildSingleSelectChips('area-chips', areas, 'area', 'Todas');
+  var areaChips = buildMultiSelectChips('area-chips', areas, 'area');
 
   var responsaveis = Array.from(new Set(COMPANIES.map(c=>c.resp).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b, 'pt-BR'); });
-  var respChips = buildSingleSelectChips('resp-chips', responsaveis, 'resp', 'Todos');
+  var respChips = buildMultiSelectChips('resp-chips', responsaveis, 'resp');
 
   var searchInput = document.getElementById('search-input');
   var searchFlyTimeout = null;
 
   function chipFiltered(){
-    var tipoVal = tipoChips.value;
-    var areaVal = areaChips.value;
-    var respVal = respChips.value;
     return markers.filter(function(m){
       var c = m.companyData;
       if(!activeStatus.has(c.s)) return false;
-      if(tipoVal && c.t !== tipoVal) return false;
-      if(areaVal && c.a !== areaVal) return false;
-      if(respVal && c.resp !== respVal) return false;
+      if(c.t && !tipoChips.has(c.t)) return false;
+      if(c.a && !areaChips.has(c.a)) return false;
+      if(c.resp && !respChips.has(c.resp)) return false;
       return true;
     });
   }
