@@ -108,6 +108,19 @@
   .panel-card::before{ top:-1px; left:-1px; border-right:none; border-bottom:none; }
   .panel-card::after{ bottom:-1px; right:-1px; border-left:none; border-top:none; }
 
+  #controls-toggle{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 12px; cursor:pointer; user-select:none;
+    font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:var(--text-dim); text-transform:uppercase;
+    transition: color .12s ease;
+  }
+  #controls-toggle:hover{ color:var(--text-primary); }
+  #controls-toggle .ct-icon{ color:var(--accent-amber); font-size:11px; transition: transform .2s ease; }
+  #controls.collapsed #controls-toggle .ct-icon{ transform:rotate(-90deg); }
+
+  #controls-body{ display:flex; flex-direction:column; gap:8px; }
+  #controls.collapsed #controls-body{ display:none; }
+
   #search-box{ padding:10px; }
   #search-input{
     width:100%; background:var(--bg-1); border:1px solid var(--grid-line-strong); color:var(--text-primary);
@@ -116,7 +129,7 @@
   #search-input::placeholder{ color:var(--text-dim); }
   #search-input:focus{ border-color:var(--accent-amber); }
 
-  #filter-panel{ padding:12px; display:flex; flex-direction:column; gap:12px; }
+  #filter-panel{ padding:12px; display:flex; flex-direction:column; gap:12px; max-height:min(52vh, 460px); overflow-y:auto; }
   .filter-group .fg-title{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:0.1em; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; }
   .chip-row{ display:flex; flex-wrap:wrap; gap:5px; }
   .chip{
@@ -129,12 +142,8 @@
   .chip[data-status="Ativo"].active{ background:var(--status-ativo); }
   .chip[data-status="Não é Cliente"].active{ background:var(--status-prospect); }
   .chip[data-status="Inativo"].active{ background:var(--status-inativo); color:var(--text-primary); }
-  .chip[data-tipo].active, .chip[data-area].active{ background:var(--accent-amber); }
-
-  select#tipo-select, select#area-select{
-    width:100%; background:var(--bg-1); border:1px solid var(--grid-line-strong); color:var(--text-primary);
-    font-family:var(--font-mono); font-size:11.5px; padding:6px 8px; border-radius:2px; outline:none;
-  }
+  .chip[data-tipo].active, .chip[data-area].active, .chip[data-resp].active{ background:var(--accent-amber); }
+  .chip.chip-all.active{ background:rgba(255,255,255,0.12); color:var(--text-primary); font-weight:600; border-color:var(--text-muted); }
 
   #reset-filters{
     font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em;
@@ -280,29 +289,35 @@
   </div>
 
   <div id="controls">
-    <div class="panel-card" id="search-box">
-      <input id="search-input" type="text" placeholder="Buscar empresa ou cidade…" autocomplete="off">
+    <div class="panel-card" id="controls-toggle">
+      <span class="ct-label">// filtros e busca</span>
+      <span class="ct-icon" id="controls-toggle-icon">▾</span>
     </div>
-    <div class="panel-card" id="filter-panel">
-      <div class="filter-group">
-        <div class="fg-title">Status</div>
-        <div class="chip-row" id="status-chips"></div>
+    <div id="controls-body">
+      <div class="panel-card" id="search-box">
+        <input id="search-input" type="text" placeholder="Buscar empresa ou cidade…" autocomplete="off">
       </div>
-      <div class="filter-group">
-        <div class="fg-title">Tipo de empresa</div>
-        <select id="tipo-select"><option value="">Todos os tipos</option></select>
+      <div class="panel-card" id="filter-panel">
+        <div class="filter-group">
+          <div class="fg-title">Status</div>
+          <div class="chip-row" id="status-chips"></div>
+        </div>
+        <div class="filter-group">
+          <div class="fg-title">Tipo de empresa</div>
+          <div class="chip-row" id="tipo-chips"></div>
+        </div>
+        <div class="filter-group">
+          <div class="fg-title">Área de atuação</div>
+          <div class="chip-row" id="area-chips"></div>
+        </div>
+        <div class="filter-group">
+          <div class="fg-title">Responsável</div>
+          <div class="chip-row" id="resp-chips"></div>
+        </div>
+        <div id="reset-filters">Limpar filtros</div>
       </div>
-      <div class="filter-group">
-        <div class="fg-title">Área de atuação</div>
-        <select id="area-select"><option value="">Todas as áreas</option></select>
-      </div>
-      <div class="filter-group">
-        <div class="fg-title">Responsável</div>
-        <select id="resp-select"><option value="">Todos os responsáveis</option></select>
-      </div>
-      <div id="reset-filters">Limpar filtros</div>
+      <div id="result-count"><b id="result-n">0</b> empresas exibidas no mapa</div>
     </div>
-    <div id="result-count"><b id="result-n">0</b> empresas exibidas no mapa</div>
   </div>
 
   <div id="detail-panel">
@@ -421,31 +436,65 @@
     chipRow.appendChild(chip);
   });
 
+  // single-select chip group: one "Todos" chip + one chip per value,
+  // same visual language as the Status chips above
+  function buildSingleSelectChips(containerId, values, dataAttr, allLabel){
+    var container = document.getElementById(containerId);
+    var selected = '';
+    var chips = [];
+
+    var allChip = document.createElement('div');
+    allChip.className = 'chip chip-all active';
+    allChip.textContent = allLabel;
+    container.appendChild(allChip);
+    chips.push({ el: allChip, value: '' });
+
+    values.forEach(function(v){
+      var chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.dataset[dataAttr] = v;
+      chip.textContent = v;
+      container.appendChild(chip);
+      chips.push({ el: chip, value: v });
+    });
+
+    container.addEventListener('click', function(e){
+      var el = e.target.closest('.chip');
+      if(!el) return;
+      var match = chips.find(function(c){ return c.el === el; });
+      if(!match) return;
+      chips.forEach(function(c){ c.el.classList.remove('active'); });
+      match.el.classList.add('active');
+      selected = match.value;
+      applyFilters();
+    });
+
+    return {
+      get value(){ return selected; },
+      reset: function(){
+        chips.forEach(function(c){ c.el.classList.remove('active'); });
+        chips[0].el.classList.add('active');
+        selected = '';
+      }
+    };
+  }
+
   var tipos = Array.from(new Set(COMPANIES.map(c=>c.t).filter(Boolean))).sort();
-  var tipoSelect = document.getElementById('tipo-select');
-  tipos.forEach(function(t){
-    var o = document.createElement('option'); o.value = t; o.textContent = t; tipoSelect.appendChild(o);
-  });
+  var tipoChips = buildSingleSelectChips('tipo-chips', tipos, 'tipo', 'Todos');
 
   var areas = Array.from(new Set(COMPANIES.map(c=>c.a).filter(Boolean))).sort();
-  var areaSelect = document.getElementById('area-select');
-  areas.forEach(function(a){
-    var o = document.createElement('option'); o.value = a; o.textContent = a; areaSelect.appendChild(o);
-  });
+  var areaChips = buildSingleSelectChips('area-chips', areas, 'area', 'Todas');
 
   var responsaveis = Array.from(new Set(COMPANIES.map(c=>c.resp).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b, 'pt-BR'); });
-  var respSelect = document.getElementById('resp-select');
-  responsaveis.forEach(function(r){
-    var o = document.createElement('option'); o.value = r; o.textContent = r; respSelect.appendChild(o);
-  });
+  var respChips = buildSingleSelectChips('resp-chips', responsaveis, 'resp', 'Todos');
 
   var searchInput = document.getElementById('search-input');
   var searchFlyTimeout = null;
 
   function chipFiltered(){
-    var tipoVal = tipoSelect.value;
-    var areaVal = areaSelect.value;
-    var respVal = respSelect.value;
+    var tipoVal = tipoChips.value;
+    var areaVal = areaChips.value;
+    var respVal = respChips.value;
     return markers.filter(function(m){
       var c = m.companyData;
       if(!activeStatus.has(c.s)) return false;
@@ -486,17 +535,26 @@
     clearTimeout(searchFlyTimeout);
     searchFlyTimeout = setTimeout(function(){ flyToSearchMatches(chipFiltered()); }, 500);
   });
-  tipoSelect.addEventListener('change', applyFilters);
-  areaSelect.addEventListener('change', applyFilters);
-  respSelect.addEventListener('change', applyFilters);
   document.getElementById('reset-filters').addEventListener('click', function(){
     activeStatus = new Set(statuses);
     Array.from(chipRow.children).forEach(ch=>ch.classList.add('active'));
-    tipoSelect.value = '';
-    areaSelect.value = '';
-    respSelect.value = '';
+    tipoChips.reset();
+    areaChips.reset();
+    respChips.reset();
     searchInput.value = '';
     applyFilters();
+  });
+
+  // ---------- painel de filtros retrátil (melhora a visualização mobile) ----------
+  var controlsEl = document.getElementById('controls');
+  var controlsToggle = document.getElementById('controls-toggle');
+  function setControlsCollapsed(collapsed){
+    controlsEl.classList.toggle('collapsed', collapsed);
+    controlsToggle.querySelector('.ct-icon').textContent = collapsed ? '▸' : '▾';
+  }
+  setControlsCollapsed(window.innerWidth <= 720);
+  controlsToggle.addEventListener('click', function(){
+    setControlsCollapsed(!controlsEl.classList.contains('collapsed'));
   });
 
   // ---------- detail panel ----------
