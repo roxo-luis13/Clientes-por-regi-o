@@ -3,7 +3,7 @@
 ## O que é
 Página web estática (sem backend) que mostra no mapa todas as empresas da carteira
 de clientes do Luis (consultor comercial/técnico na HI Tecnologia), com filtros e
-detalhes de contato. Uso pessoal — não é para publicação pública indexada.
+detalhes de contato.
 
 ## Arquivos
 - `mapa-clientes.html` — página principal. Leaflet.js (mapa) + Leaflet.markercluster
@@ -11,28 +11,59 @@ detalhes de contato. Uso pessoal — não é para publicação pública indexada
   grade de fundo, acentos laranja/ciano). Fontes: JetBrains Mono + Inter (Google Fonts).
   Tiles do mapa: CartoDB dark_all (gratuito, sem API key).
 - `companies_data.js` — dados embutidos como `const COMPANIES = [...]`. Cada empresa:
-  `{id, n(ome), a(rea), t(ipo), s(tatus), c(idade), e(stado), tel(efone), em(ail),
-  resp(onsável), cd (cliente de), tm (cliente telemetria? Sim/Não), sh (sheet/aba de
-  origem), lat, lon, ap (approx: true se a localização é aproximada — cidade não
-  informada na planilha original, ponto no centro do estado)}`.
+  `{id, n(ome), a(rea de atuação), t(ipo de empresa), s(tatus), c(idade), e(stado),
+  tel(efone, só dígitos), em(ail, pode ser null), resp(onsável), cd (cliente de),
+  tm (cliente telemetria? "Sim"/"Não"), lat, lon, ap (approx: true se a localização é
+  aproximada — cidade não encontrada/não informada, ponto no centro do estado)}`.
+- `scripts/build_companies_data.py` — pipeline que regera `companies_data.js` a partir
+  de uma planilha `COMPANY_*.xlsx` nova. Ver "Origem dos dados" abaixo.
+- `scripts/cities_br.json` — base de ~5.571 municípios brasileiros (código IBGE, nome,
+  nome normalizado, UF, lat, lon), extraída do pacote npm `lib-city-br`. Usada pelo
+  script de geocodificação.
 
 ## Origem dos dados
-Os dados vêm de uma planilha Excel (`COMPANY_*.xlsx`) com abas: Infra, Diversos,
-Saneamento, Agro, Outros. Colunas principais: ID, Nome da Empresa, Área(s) de Atuação,
-Tipo da empresa, Status (Ativo/Inativo/Não é Cliente), Cidade, Estado, É cliente do
-Portal de Telemetria?, Telefone, Email, Cliente de, Responsável.
+A planilha `COMPANY_*.xlsx` (exportada do CRM) tem uma única aba com colunas: Nome da
+Empresa, Tipo da empresa, Telefone de trabalho, Celular, Site Corporativo, Responsável,
+Número, Complemento, Endereço, Cidade, Tipo de empresa, Estado, Razão Social, Bairro,
+CEP, É cliente do Portal de Telemetria?, Status, Atendido por, Cliente de, Área(s) de
+Atuação, Cliente estratégico. Ela **não tem coluna de e-mail** (diferente de versões
+anteriores da planilha).
 
-As coordenadas foram geocodificadas por nome de cidade/UF usando uma base pública de
-municípios brasileiros (pacote npm `lib-city-br`, ~5.571 municípios com lat/lon).
-Erros de digitação de cidade/estado na planilha original foram corrigidos manualmente
-(ex.: "Panembi/RS" → Panambi/RS). Empresas sem cidade preenchida foram posicionadas no
-centro geográfico do estado e marcadas com `ap: true`.
+Para regerar `companies_data.js` a partir de uma planilha nova:
+```
+pip install pandas openpyxl   # se ainda não instalado
+python3 scripts/build_companies_data.py caminho/para/COMPANY_novo.xlsx
+```
 
-Se a planilha for atualizada no futuro, o pipeline de geocodificação (pandas +
-normalização de nomes + fallback por estado) precisa ser reaplicado para regerar
-`companies_data.js`. Nenhum script Python desse pipeline está neste repositório ainda
-— só o resultado final. Se quiser reprocessar, peça para reconstruir o pipeline a
-partir da planilha original.
+O que o script faz:
+- Mantém só linhas com Nome da Empresa preenchido e Status em
+  `{Ativo, Inativo, Não é Cliente}` — outros status (`Sem fit`, `Inexistente`, em
+  branco) são descartados por decisão do usuário.
+- Geocodifica Cidade/Estado usando `scripts/cities_br.json`: match exato → fuzzy match
+  dentro do mesmo estado (corte alto, 0.90, para evitar falsos positivos tipo bairro
+  "Jurubatuba" casando com a cidade "Ubatuba") → fallback pro centro geográfico do
+  estado informado (marcado `ap: true`). Nunca ignora o estado informado pra tentar
+  achar a cidade em outro estado (abreviação como "POA" poderia colidir com uma cidade
+  homônima não relacionada, tipo "Poá/SP", e posicionar a empresa no lugar errado
+  silenciosamente).
+- Erros de digitação conhecidos ficam hardcoded em `MANUAL_FIXES` no topo do script
+  (ex.: "Panembi/RS" → Panambi/RS). Adicione novos casos ali conforme forem achados.
+- Como a planilha não tem mais e-mail, o script faz backfill do campo `em` a partir do
+  `companies_data.js` atual, casando por nome da empresa normalizado — empresas novas
+  ou com nome muito diferente do anterior ficam sem e-mail (`em: null`, exibido como
+  "Não informado" no painel de detalhes).
+- Gera `scripts/geocode_report.txt` (não versionado) listando toda aproximação/fuzzy
+  match/erro, pra revisão manual se necessário.
+
+Para atualizar a base de municípios (`scripts/cities_br.json`), caso o pacote
+`lib-city-br` seja atualizado:
+```
+npm install lib-city-br --no-save
+node -e "require('fs').writeFileSync('scripts/cities_br.json', JSON.stringify(require('lib-city-br/data.min.json')))"
+```
+
+A planilha original (`.xlsx`) não fica versionada no repositório — só o resultado
+processado (`companies_data.js`).
 
 ## Funcionalidades já implementadas
 - Mapa com marcador em forma de losango, cor por status (ciano=Ativo,
@@ -45,16 +76,22 @@ partir da planilha original.
   completo (telefone, e-mail, responsável, área, tipo, "cliente de", indicador de
   telemetria, coordenadas)
 - Filtros: status (chips), tipo de empresa (select), área de atuação (select),
-  busca por texto (nome/cidade)
+  responsável (select), busca por texto (nome/cidade/estado)
+- Busca por texto **não oculta** empresas próximas — só centraliza/dá zoom no mapa
+  sobre os resultados encontrados (debounce de 500ms), mantendo a vizinhança visível.
+  Os filtros de status/tipo/área/responsável continuam ocultando normalmente.
 - Estatísticas no topo (total, ativos, não-clientes, inativos)
 
-## Destino no GitHub
-Repositório do usuário: https://github.com/roxo-luis13/Clientes-por-regi-o.git
-Ainda não foi feito o primeiro push. Este diretório deve virar a raiz desse repo.
+## GitHub
+Repositório: https://github.com/roxo-luis13/Clientes-por-regi-o (**público**,
+GitHub Pages habilitado servindo a partir da branch `main`).
 
-## Próximos passos sugeridos (pendente, não decidido pelo usuário ainda)
-- Fazer o primeiro commit/push para o repositório acima
-- Perguntar ao usuário se quer publicar via GitHub Pages (isso tornaria a página
-  pública na internet — o usuário até agora pediu explicitamente que o mapa NÃO
-  fosse público/indexado, então confirme antes de habilitar Pages)
-- Se for só para versionamento privado, manter o repo como **privado** no GitHub
+URL pública da página: https://roxo-luis13.github.io/Clientes-por-regi-o/mapa-clientes.html
+
+Fluxo de trabalho: desenvolver na branch `claude/shared-link-info-0hxk8z`, abrir PR
+contra `main` e mesclar — combinado com o usuário que atualizações pedidas por ele
+já devem ser commitadas/versionadas (e mescladas) sem precisar confirmar a cada passo.
+
+**Atenção:** por ser público, `companies_data.js` expõe telefone/responsável de todas
+as empresas da planilha para qualquer pessoa com o link (mesmo sem indexação por
+buscadores — a página tem `<meta name="robots" content="noindex, nofollow">`).
