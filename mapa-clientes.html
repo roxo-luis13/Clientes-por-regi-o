@@ -303,7 +303,7 @@
     </div>
     <div id="controls-body">
       <div class="panel-card" id="search-box">
-        <input id="search-input" type="text" placeholder="Buscar empresa ou cidade…" autocomplete="off">
+        <input id="search-input" type="text" placeholder="Buscar empresa, cidade ou bairro…" autocomplete="off">
       </div>
       <div class="panel-card" id="filter-panel">
         <div class="filter-group">
@@ -508,7 +508,7 @@
     if(!q) return;
     var matches = filtered.filter(function(m){
       var c = m.companyData;
-      var hay = ((c.n||'') + ' ' + (c.c||'') + ' ' + (c.e||'')).toLowerCase();
+      var hay = ((c.n||'') + ' ' + (c.c||'') + ' ' + (c.e||'') + ' ' + (c.end||'')).toLowerCase();
       return hay.indexOf(q) !== -1;
     });
     if(matches.length === 0) return;
