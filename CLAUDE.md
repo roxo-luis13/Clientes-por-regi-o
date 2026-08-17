@@ -83,7 +83,8 @@ processado (`companies_data.js`).
   telemetria, coordenadas)
 - Filtros: status, tipo de empresa, área de atuação e responsável — todos como chips
   (mesma estética visual, todos multi-seleção: cada valor começa ativo e o clique
-  inclui/exclui aquele item), busca por texto (nome/cidade/estado)
+  inclui/exclui aquele item), busca por texto (nome/cidade/estado/endereço, incluindo
+  bairro)
 - Painel de filtros/busca é **retrátil** (clique na barra "// filtros e busca" no topo
   do painel) — começa recolhido em telas ≤720px para não ocupar a tela no mobile
 - Cada grupo de filtro (Status, Tipo, Área, Responsável) também é retrátil
