@@ -95,6 +95,10 @@ processado (`companies_data.js`).
 - Busca por texto **não oculta** empresas próximas — só centraliza/dá zoom no mapa
   sobre os resultados encontrados (debounce de 500ms), mantendo a vizinhança visível.
   Os filtros de status/tipo/área/responsável continuam ocultando normalmente.
+- Busca é **acento-insensível** ("Sao Paulo" acha "São Paulo") e aceita **vírgula
+  para combinar termos** — cada trecho separado por vírgula precisa aparecer em
+  algum lugar da empresa (nome/cidade/estado/endereço), útil pra desambiguar bairro
+  de cidade (ex.: "Vila Mariana, São Paulo")
 - Estatísticas no topo (total, ativos, não-clientes, inativos)
 
 ## GitHub
