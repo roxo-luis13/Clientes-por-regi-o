@@ -179,11 +179,14 @@
     padding:18px 20px 14px; border-bottom:1px solid var(--grid-line);
     display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
   }
-  #detail-panel .dp-close{
+  #detail-panel .dp-header-actions{ display:flex; gap:6px; flex-shrink:0; }
+  #detail-panel .dp-close, #detail-panel .dp-back{
     font-family:var(--font-mono); cursor:pointer; color:var(--text-dim); font-size:13px;
     border:1px solid var(--grid-line-strong); padding:4px 8px; border-radius:2px; line-height:1;
+    white-space:nowrap;
   }
   #detail-panel .dp-close:hover{ color:var(--text-primary); border-color:var(--text-muted); }
+  #detail-panel .dp-back:hover{ color:var(--accent-amber); border-color:var(--text-muted); }
   #detail-panel .dp-id{ font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:0.08em; }
   #detail-panel .dp-name{ font-size:18px; font-weight:700; margin-top:4px; line-height:1.25; }
   #detail-panel .dp-status-row{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
@@ -335,7 +338,10 @@
         <div class="dp-name" id="dp-name">—</div>
         <div class="dp-status-row" id="dp-status-row"></div>
       </div>
-      <div class="dp-close" id="dp-close">FECHAR ✕</div>
+      <div class="dp-header-actions">
+        <div class="dp-back" id="dp-back" style="display:none;">← VOLTAR</div>
+        <div class="dp-close" id="dp-close">FECHAR ✕</div>
+      </div>
     </div>
     <div class="dp-body" id="dp-body"></div>
   </div>
@@ -569,7 +575,15 @@
     return '<div class="dp-field"><div class="k">'+k+'</div><div class="v">'+inner+'</div></div>';
   }
 
+  // guarda a última lista de região aberta, pra permitir "voltar" a partir
+  // do painel de detalhes de uma empresa clicada dentro dessa lista
+  var currentRegion = null;
+  var dpBack = document.getElementById('dp-back');
+
   function openRegionList(markersArr, bounds){
+    currentRegion = { markersArr: markersArr, bounds: bounds };
+    dpBack.style.display = 'none';
+
     var companies = markersArr.map(function(m){ return m.companyData; })
       .sort(function(a,b){ return (a.n||'').localeCompare(b.n||'', 'pt-BR'); });
 
@@ -594,7 +608,7 @@
     Array.from(body.querySelectorAll('.region-item')).forEach(function(el){
       el.addEventListener('click', function(){
         var idx = parseInt(el.dataset.idx, 10);
-        openDetail(companies[idx]);
+        openDetail(companies[idx], { fromRegion: true });
       });
     });
 
@@ -602,7 +616,11 @@
     if(bounds){ map.flyToBounds(bounds, { padding:[80,80], maxZoom:15, duration:0.6 }); }
   }
 
-  function openDetail(c){
+  function openDetail(c, opts){
+    var fromRegion = !!(opts && opts.fromRegion && currentRegion);
+    if(!fromRegion){ currentRegion = null; }
+    dpBack.style.display = fromRegion ? 'flex' : 'none';
+
     document.getElementById('dp-id').textContent = 'ID ' + (c.id != null ? c.id : '—') + ' · ' + (c.a || '');
     document.getElementById('dp-name').textContent = c.n || 'Sem nome';
     document.getElementById('dp-body').style.padding = '16px 20px';
@@ -631,6 +649,10 @@
 
   document.getElementById('dp-close').addEventListener('click', function(){
     panel.classList.remove('open');
+  });
+
+  dpBack.addEventListener('click', function(){
+    if(currentRegion){ openRegionList(currentRegion.markersArr, currentRegion.bounds); }
   });
 })();
 </script>
