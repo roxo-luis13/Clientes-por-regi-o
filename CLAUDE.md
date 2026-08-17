@@ -12,9 +12,10 @@ detalhes de contato.
   Tiles do mapa: CartoDB dark_all (gratuito, sem API key).
 - `companies_data.js` — dados embutidos como `const COMPANIES = [...]`. Cada empresa:
   `{id, n(ome), a(rea de atuação), t(ipo de empresa), s(tatus), c(idade), e(stado),
-  tel(efone, só dígitos), em(ail, pode ser null), resp(onsável), cd (cliente de),
-  tm (cliente telemetria? "Sim"/"Não"), lat, lon, ap (approx: true se a localização é
-  aproximada — cidade não encontrada/não informada, ponto no centro do estado)}`.
+  end (ereço completo: rua/número/complemento/bairro/CEP formatados numa string, pode
+  ser null), tel(efone, só dígitos), em(ail, pode ser null), resp(onsável), cd (cliente
+  de), tm (cliente telemetria? "Sim"/"Não"), lat, lon, ap (approx: true se a localização
+  é aproximada — cidade não encontrada/não informada, ponto no centro do estado)}`.
 - `scripts/build_companies_data.py` — pipeline que regera `companies_data.js` a partir
   de uma planilha `COMPANY_*.xlsx` nova. Ver "Origem dos dados" abaixo.
 - `scripts/cities_br.json` — base de ~5.571 municípios brasileiros (código IBGE, nome,
@@ -48,6 +49,11 @@ O que o script faz:
   silenciosamente).
 - Erros de digitação conhecidos ficam hardcoded em `MANUAL_FIXES` no topo do script
   (ex.: "Panembi/RS" → Panambi/RS). Adicione novos casos ali conforme forem achados.
+- Monta o campo `end` (endereço completo) juntando Endereço + Número + Complemento +
+  Bairro + CEP numa única string formatada, removendo um resíduo tipo "(, )"/"(0, 0)"
+  que a planilha às vezes deixa no fim do Endereço (placeholder de coordenada não
+  preenchido). Só ~493 das 2.015 linhas têm Endereço preenchido — as demais ficam com
+  `end: null` (exibido como "Não informado" no painel de detalhes).
 - Como a planilha não tem mais e-mail, o script faz backfill do campo `em` a partir do
   `companies_data.js` atual, casando por nome da empresa normalizado — empresas novas
   ou com nome muito diferente do anterior ficam sem e-mail (`em: null`, exibido como

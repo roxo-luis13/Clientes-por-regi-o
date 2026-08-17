@@ -88,6 +88,50 @@ def clean_str(v):
     return s if s and s.lower() != "nan" else None
 
 
+def clean_endereco(v):
+    s = clean_str(v)
+    if not s:
+        return None
+    # a planilha às vezes deixa um resíduo tipo "(, )" ou "(0, 0)" no fim
+    # do endereço (placeholder de coordenada não preenchido)
+    s = re.sub(r"\s*\([^)]*\)\s*$", "", s).strip(" ,")
+    return s or None
+
+
+def format_cep(v):
+    s = clean_str(v)
+    if not s:
+        return None
+    digits = re.sub(r"[^0-9]", "", s)
+    if len(digits) == 8:
+        return digits[:5] + "-" + digits[5:]
+    return s
+
+
+def build_full_address(row):
+    endereco = clean_endereco(row.get("Endereço"))
+    numero = clean_str(row.get("Número"))
+    complemento = clean_str(row.get("Complemento"))
+    bairro = clean_str(row.get("Bairro"))
+    cep = format_cep(row.get("CEP"))
+
+    parts = []
+    if endereco:
+        line = endereco
+        if numero:
+            line += ", " + numero
+        parts.append(line)
+    if complemento:
+        parts.append(complemento)
+    if bairro:
+        parts.append(bairro)
+
+    address = " — ".join(parts) if parts else None
+    if cep:
+        address = (address + f" — CEP {cep}") if address else f"CEP {cep}"
+    return address
+
+
 def load_city_db():
     with open(CITIES_JSON, "r", encoding="utf-8") as f:
         cities_raw = json.load(f)
@@ -214,6 +258,7 @@ def main():
             "s": clean_str(row.get("Status")),
             "c": cidade,
             "e": estado,
+            "end": build_full_address(row),
             "tel": tel,
             "em": old_email_by_name.get(norm(nome)),
             "resp": clean_str(row.get("Responsável")),

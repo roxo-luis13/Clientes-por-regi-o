@@ -615,6 +615,7 @@
 
     var body = document.getElementById('dp-body');
     body.innerHTML =
+      field('Endereço', c.end) +
       field('Cidade / Estado', [c.c, c.e].filter(Boolean).join(' — ')) +
       field('Área de atuação', c.a) +
       field('Telefone', c.tel, 'tel') +
