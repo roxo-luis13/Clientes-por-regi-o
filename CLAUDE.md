@@ -79,8 +79,10 @@ processado (`companies_data.js`).
 - **Clique num cluster** → abre painel lateral direito com a lista de empresas
   daquela região (não zoom automático)
 - **Clique numa empresa** (na lista ou direto no mapa) → abre painel de detalhes
-  completo (telefone, e-mail, responsável, área, tipo, "cliente de", indicador de
-  telemetria, coordenadas)
+  completo (endereço, telefone, e-mail, responsável, área, tipo, "cliente de",
+  indicador de telemetria, coordenadas). Quando aberto a partir da lista de uma
+  região, o painel ganha um botão "← VOLTAR" pra retornar à lista sem precisar
+  fechar e reabrir o cluster
 - Filtros: status, tipo de empresa, área de atuação e responsável — todos como chips
   (mesma estética visual, todos multi-seleção: cada valor começa ativo e o clique
   inclui/exclui aquele item), busca por texto (nome/cidade/estado/endereço, incluindo
