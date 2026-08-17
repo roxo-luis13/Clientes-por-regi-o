@@ -509,13 +509,23 @@
     flyToSearchMatches(filtered);
   }
 
+  // remove acentos e caixa, pra "Sao Paulo" achar "São Paulo" e vice-versa
+  function normalizeText(s){
+    return (s||'').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  }
+
   function flyToSearchMatches(filtered){
-    var q = searchInput.value.trim().toLowerCase();
-    if(!q) return;
+    var raw = searchInput.value.trim();
+    if(!raw) return;
+    // cada trecho separado por vírgula é um termo obrigatório (todos têm que
+    // aparecer em algum lugar da empresa) — permite desambiguar bairro de
+    // cidade, ex.: "Vila Mariana, São Paulo"
+    var terms = raw.split(',').map(function(t){ return normalizeText(t.trim()); }).filter(Boolean);
+    if(terms.length === 0) return;
     var matches = filtered.filter(function(m){
       var c = m.companyData;
-      var hay = ((c.n||'') + ' ' + (c.c||'') + ' ' + (c.e||'') + ' ' + (c.end||'')).toLowerCase();
-      return hay.indexOf(q) !== -1;
+      var hay = normalizeText((c.n||'') + ' ' + (c.c||'') + ' ' + (c.e||'') + ' ' + (c.end||''));
+      return terms.every(function(t){ return hay.indexOf(t) !== -1; });
     });
     if(matches.length === 0) return;
     if(matches.length === 1){
