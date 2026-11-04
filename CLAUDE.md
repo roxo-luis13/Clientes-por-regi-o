@@ -6,6 +6,10 @@ de clientes do Luis (consultor comercial/técnico na HI Tecnologia), com filtros
 detalhes de contato.
 
 ## Arquivos
+- `index.html` — redireciona (meta refresh) pra `mapa-clientes.html`. Existe só pra
+  quem acessa a URL raiz do GitHub Pages não ver o 404 padrão (antes não existia
+  nenhum arquivo na raiz, então abrir a URL sem `/mapa-clientes.html` no final não
+  mostrava nada — "o mapa não aparece").
 - `mapa-clientes.html` — página principal. Leaflet.js (mapa) + Leaflet.markercluster
   (agrupamento de pontos). Tema visual "blueprint industrial" (fundo azul-marinho,
   grade de fundo, acentos laranja/ciano). Fontes: JetBrains Mono + Inter (Google Fonts).
