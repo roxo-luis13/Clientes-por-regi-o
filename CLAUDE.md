@@ -13,7 +13,13 @@ detalhes de contato.
 - `mapa-clientes.html` — página principal. Leaflet.js (mapa) + Leaflet.markercluster
   (agrupamento de pontos). Tema visual "blueprint industrial" (fundo azul-marinho,
   grade de fundo, acentos laranja/ciano). Fontes: JetBrains Mono + Inter (Google Fonts).
-  Tiles do mapa: CartoDB dark_all (gratuito, sem API key).
+  Tiles do mapa: Esri Dark Gray Canvas (`server.arcgisonline.com`, camadas Base +
+  Reference empilhadas — Base sozinha não tem rótulos de cidade/rua). Gratuito, sem
+  API key. **Histórico:** usava CartoDB `dark_all` antes, mas a CARTO passou a exigir
+  API key pra tiles anônimos (quebrou o mapa em nov/2026 — tiles apareciam com marca
+  d'água "API KEY REQUIRED"). Se o Esri também passar a exigir chave no futuro, é só
+  trocar o provedor de novo — nenhum dos dois tem contrato/SLA, são serviços gratuitos
+  que podem mudar de política sem aviso.
 - `companies_data.js` — dados embutidos como `const COMPANIES = [...]`. Cada empresa:
   `{id, n(ome), a(rea de atuação), t(ipo de empresa), s(tatus), c(idade), e(stado),
   end (ereço completo: rua/número/complemento/bairro/CEP formatados numa string, pode
