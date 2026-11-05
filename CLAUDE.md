@@ -109,6 +109,13 @@ processado (`companies_data.js`).
   para combinar termos** — cada trecho separado por vírgula precisa aparecer em
   algum lugar da empresa (nome/cidade/estado/endereço), útil pra desambiguar bairro
   de cidade (ex.: "Vila Mariana, São Paulo")
+- Busca com resultado desenha dois **círculos** no mapa: vermelho = "região" (raio
+  ajustado ao percentil 90 das distâncias ao centro dos resultados — ignora os ~10%
+  mais distantes pra não inflar o círculo por causa de nome de rua homônimo em
+  outra cidade, por exemplo), azul = "macrorregião" (3x o raio do vermelho, mesmo
+  centro). Não existe base de dados de perímetro oficial (polígono) de bairro/cidade
+  brasileira disponível no projeto, então os círculos são uma aproximação, não o
+  contorno real da região. Somem quando a busca é limpa.
 - Estatísticas no topo (total, ativos, não-clientes, inativos)
 
 ## GitHub
