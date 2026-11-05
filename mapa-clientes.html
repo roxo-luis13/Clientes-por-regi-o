@@ -520,20 +520,79 @@
     return (s||'').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   }
 
+  // ---------- marcação de região / macrorregião da busca ----------
+  // Não há base de dados de perímetro oficial (polígono) de bairros/cidades
+  // brasileiras disponível, então a "região" é aproximada por um círculo
+  // ajustado ao resultado da busca, e a "macrorregião" por um círculo maior
+  // e concêntrico (múltiplo fixo do raio da região).
+  var MACRO_REGION_MULTIPLIER = 3;
+  var searchRegionLayer = L.layerGroup().addTo(map);
+
+  function updateSearchRegionCircles(matches){
+    searchRegionLayer.clearLayers();
+    if(!matches || matches.length === 0) return;
+
+    var latlngs = matches.map(function(m){ return m.getLatLng(); });
+    var center;
+    if(latlngs.length === 1){
+      center = latlngs[0];
+    } else {
+      // centro = mediana de lat/lng (não a média), pra um resultado distante
+      // "fora da curva" (ex.: nome de rua homônimo em outra cidade) não puxar
+      // o centro pra longe do grosso dos resultados
+      var lats = latlngs.map(function(ll){ return ll.lat; }).sort(function(a,b){ return a-b; });
+      var lngs = latlngs.map(function(ll){ return ll.lng; }).sort(function(a,b){ return a-b; });
+      var mid = Math.floor(lats.length / 2);
+      var medLat = lats.length % 2 ? lats[mid] : (lats[mid-1] + lats[mid]) / 2;
+      var medLng = lngs.length % 2 ? lngs[mid] : (lngs[mid-1] + lngs[mid]) / 2;
+      center = L.latLng(medLat, medLng);
+    }
+
+    // raio = percentil 90 das distâncias ao centro (não o máximo), pelo
+    // mesmo motivo: ignora os ~10% mais distantes pra não inflar o círculo
+    // por causa de poucos resultados fora da região real da busca
+    var dists = latlngs.map(function(ll){ return center.distanceTo(ll); }).sort(function(a,b){ return a-b; });
+    var p90 = dists[Math.floor(0.9 * (dists.length - 1))];
+
+    var regionRadius = Math.max(p90 * 1.15, 600); // metros, mínimo 600m
+    var macroRadius = regionRadius * MACRO_REGION_MULTIPLIER;
+
+    L.circle(center, {
+      radius: macroRadius,
+      color: '#2f8fff',
+      weight: 1.5,
+      dashArray: '6 5',
+      fillColor: '#2f8fff',
+      fillOpacity: 0.06,
+      interactive: false
+    }).addTo(searchRegionLayer);
+
+    L.circle(center, {
+      radius: regionRadius,
+      color: '#ff4d4d',
+      weight: 1.5,
+      dashArray: '4 4',
+      fillColor: '#ff4d4d',
+      fillOpacity: 0.10,
+      interactive: false
+    }).addTo(searchRegionLayer);
+  }
+
   function flyToSearchMatches(filtered){
     var raw = searchInput.value.trim();
-    if(!raw) return;
+    if(!raw){ updateSearchRegionCircles(null); return; }
     // cada trecho separado por vírgula é um termo obrigatório (todos têm que
     // aparecer em algum lugar da empresa) — permite desambiguar bairro de
     // cidade, ex.: "Vila Mariana, São Paulo"
     var terms = raw.split(',').map(function(t){ return normalizeText(t.trim()); }).filter(Boolean);
-    if(terms.length === 0) return;
+    if(terms.length === 0){ updateSearchRegionCircles(null); return; }
     var matches = filtered.filter(function(m){
       var c = m.companyData;
       var hay = normalizeText((c.n||'') + ' ' + (c.c||'') + ' ' + (c.e||'') + ' ' + (c.end||''));
       return terms.every(function(t){ return hay.indexOf(t) !== -1; });
     });
-    if(matches.length === 0) return;
+    if(matches.length === 0){ updateSearchRegionCircles(null); return; }
+    updateSearchRegionCircles(matches);
     if(matches.length === 1){
       var c = matches[0].companyData;
       map.flyTo([c.lat, c.lon], Math.max(map.getZoom(), 12), { duration:0.6 });
