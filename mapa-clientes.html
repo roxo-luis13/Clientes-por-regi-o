@@ -369,10 +369,16 @@
   // ---------- map init ----------
   var map = L.map('map', { zoomControl:false, minZoom:3, maxZoom:16 }).setView([-14.5, -51.9], 4.4);
   L.control.zoom({ position:'bottomright' }).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd',
-    maxZoom: 19
+  // CartoDB dark_all passou a exigir API key (quebrou o mapa — tiles vinham
+  // com marca d'água "API KEY REQUIRED"). Trocado pro Esri Dark Gray Canvas,
+  // que continua gratuito e sem chave. Base + Reference porque a camada
+  // "Base" sozinha não tem rótulos de cidade/rua.
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri',
+    maxZoom: 16
+  }).addTo(map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 16
   }).addTo(map);
 
   var clusterGroup = L.markerClusterGroup({
