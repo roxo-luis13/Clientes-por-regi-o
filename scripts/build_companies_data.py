@@ -1,23 +1,34 @@
 """
-Regenera companies_data.js a partir da planilha COMPANY_*.xlsx.
+Regenera companies_data.js a partir de uma planilha/export COMPANY_*.xlsx
+ou COMPANY_*.csv (export do CRM — aceita os dois formatos).
 
 Uso:
-    python3 scripts/build_companies_data.py caminho/para/COMPANY_*.xlsx
+    python3 scripts/build_companies_data.py caminho/para/COMPANY_novo.xlsx
+    python3 scripts/build_companies_data.py caminho/para/COMPANY_novo.csv
 
 Requer pandas e openpyxl (pip install pandas openpyxl).
 
 O que faz:
-- Lê a planilha (aba única, colunas conforme export do CRM).
+- Lê a planilha/CSV (uma única aba/arquivo, colunas conforme export do CRM;
+  o CSV é separado por ";", com BOM utf-8-sig).
 - Mantém só linhas com Nome da Empresa preenchido e Status em
   {Ativo, Inativo, Não é Cliente} (demais status/linhas em branco são
   descartados).
+- No CSV (que tem colunas "Cidade" duplicadas — um campo de texto livre,
+  propenso a erro de digitação, e outro mais preciso que o pandas renomeia
+  pra "Cidade.1"), usa "Cidade.1" como fonte principal e cai pro "Cidade"
+  só quando "Cidade.1" estiver vazio.
+- No CSV, usa a coluna "ID" como id real da empresa (preserva a identidade
+  entre atualizações) e "Email de trabalho" como e-mail direto — nenhum dos
+  dois existia nas planilhas .xlsx antigas (sem ID de verdade, sem e-mail).
 - Geocodifica Cidade/Estado usando a base de municípios em
   scripts/cities_br.json (extraída do pacote npm lib-city-br). Cidade
   ausente ou não encontrada cai no centro geográfico do estado, marcado
   com "ap": true.
 - Faz backfill do campo de e-mail a partir do companies_data.js atual
-  (casando por nome da empresa normalizado), já que a planilha não traz
-  mais essa coluna.
+  (casando por nome da empresa normalizado) só pra linhas sem e-mail na
+  fonte (sempre necessário no .xlsx antigo; no CSV só preenche o que
+  faltar).
 - Sobrescreve companies_data.js na raiz do repositório.
 
 Para atualizar a base de municípios (scripts/cities_br.json), rode:
@@ -45,6 +56,7 @@ ALLOWED_STATUS = {"Ativo", "Inativo", "Não é Cliente"}
 # correções manuais para erros de digitação conhecidos na planilha
 MANUAL_FIXES = {
     ("panembi", "RS"): "panambi",
+    ("moji-mirim", "SP"): "mogi mirim",
 }
 
 
@@ -132,6 +144,29 @@ def build_full_address(row):
     return address
 
 
+def load_source(path):
+    """Lê .xlsx ou .csv e devolve um DataFrame com colunas normalizadas:
+    "_source_id" (ID real da empresa, só no CSV) e "_source_email" (e-mail
+    direto, só no CSV). "Cidade" já vem resolvida pra fonte mais confiável
+    quando há duplicata (só acontece no CSV)."""
+    path = Path(path)
+    if path.suffix.lower() == ".csv":
+        df = pd.read_csv(path, sep=";", encoding="utf-8-sig", dtype=str, keep_default_na=False)
+        df = df.replace({"": None})
+        if "Cidade.1" in df.columns:
+            # "Cidade.1" é um campo de endereço padronizado/mais confiável;
+            # "Cidade" é texto livre antigo, com typos (ex.: "Taquari" vs a
+            # cidade real "Taquara") — preferir Cidade.1 quando preenchido
+            df["Cidade"] = df["Cidade.1"].where(df["Cidade.1"].notna(), df["Cidade"])
+        df["_source_id"] = df["ID"] if "ID" in df.columns else None
+        df["_source_email"] = df["Email de trabalho"] if "Email de trabalho" in df.columns else None
+        return df
+    df = pd.read_excel(path)
+    df["_source_id"] = None
+    df["_source_email"] = None
+    return df
+
+
 def load_city_db():
     with open(CITIES_JSON, "r", encoding="utf-8") as f:
         cities_raw = json.load(f)
@@ -209,16 +244,16 @@ def load_old_emails():
 
 def main():
     if len(sys.argv) != 2:
-        print(f"Uso: python3 {sys.argv[0]} caminho/para/planilha.xlsx", file=sys.stderr)
+        print(f"Uso: python3 {sys.argv[0]} caminho/para/planilha.xlsx|.csv", file=sys.stderr)
         sys.exit(1)
-    xlsx_path = sys.argv[1]
+    source_path = sys.argv[1]
 
     by_key, state_center = load_city_db()
     geocode = make_geocoder(by_key, state_center)
     old_email_by_name = load_old_emails()
     print("empresas com e-mail conhecido (base atual):", len(old_email_by_name), file=sys.stderr)
 
-    df = pd.read_excel(xlsx_path)
+    df = load_source(source_path)
     df = df[df["Nome da Empresa"].notna()]
     df = df[df["Status"].isin(ALLOWED_STATUS)]
     print("linhas após filtro de nome/status:", len(df), file=sys.stderr)
@@ -226,6 +261,7 @@ def main():
     companies = []
     report_lines = []
     next_id = 1
+    used_ids = set()
 
     for _, row in df.iterrows():
         nome = clean_str(row.get("Nome da Empresa"))
@@ -243,6 +279,18 @@ def main():
         telemetria_raw = clean_str(row.get("É cliente do Portal de Telemetria?"))
         tm = "Sim" if telemetria_raw and telemetria_raw.strip().lower() == "sim" else "Não"
 
+        email = clean_str(row.get("_source_email")) or old_email_by_name.get(norm(nome))
+
+        empresa_id = None
+        source_id = clean_str(row.get("_source_id"))
+        if source_id and source_id.isdigit():
+            empresa_id = int(source_id)
+        if empresa_id is None or empresa_id in used_ids:
+            while next_id in used_ids:
+                next_id += 1
+            empresa_id = next_id
+        used_ids.add(empresa_id)
+
         lat, lon, approx, note = geocode(cidade, uf)
         if lat is None:
             report_lines.append(f"SEM COORDENADAS: {nome!r} cidade={cidade!r} estado={estado!r}")
@@ -251,7 +299,7 @@ def main():
             report_lines.append(f"{note}: {nome!r} cidade={cidade!r} estado={estado!r}")
 
         companies.append({
-            "id": next_id,
+            "id": empresa_id,
             "n": nome,
             "a": clean_str(row.get("Área(s) de Atuação")),
             "t": clean_str(row.get("Tipo da empresa")),
@@ -260,7 +308,7 @@ def main():
             "e": estado,
             "end": build_full_address(row),
             "tel": tel,
-            "em": old_email_by_name.get(norm(nome)),
+            "em": email,
             "resp": clean_str(row.get("Responsável")),
             "cd": clean_str(row.get("Cliente de")),
             "tm": tm,
@@ -268,7 +316,6 @@ def main():
             "lon": round(lon, 4),
             "ap": approx,
         })
-        next_id += 1
 
     print("empresas geradas:", len(companies), file=sys.stderr)
 
