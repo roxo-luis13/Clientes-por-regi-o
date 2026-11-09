@@ -27,23 +27,34 @@ detalhes de contato.
   de), tm (cliente telemetria? "Sim"/"Não"), lat, lon, ap (approx: true se a localização
   é aproximada — cidade não encontrada/não informada, ponto no centro do estado)}`.
 - `scripts/build_companies_data.py` — pipeline que regera `companies_data.js` a partir
-  de uma planilha `COMPANY_*.xlsx` nova. Ver "Origem dos dados" abaixo.
+  de uma planilha `COMPANY_*.xlsx` **ou** um export `COMPANY_*.csv` do CRM. Ver "Origem
+  dos dados" abaixo.
 - `scripts/cities_br.json` — base de ~5.571 municípios brasileiros (código IBGE, nome,
   nome normalizado, UF, lat, lon), extraída do pacote npm `lib-city-br`. Usada pelo
   script de geocodificação.
 
 ## Origem dos dados
-A planilha `COMPANY_*.xlsx` (exportada do CRM) tem uma única aba com colunas: Nome da
-Empresa, Tipo da empresa, Telefone de trabalho, Celular, Site Corporativo, Responsável,
-Número, Complemento, Endereço, Cidade, Tipo de empresa, Estado, Razão Social, Bairro,
-CEP, É cliente do Portal de Telemetria?, Status, Atendido por, Cliente de, Área(s) de
-Atuação, Cliente estratégico. Ela **não tem coluna de e-mail** (diferente de versões
-anteriores da planilha).
+Duas fontes possíveis, o script aceita as duas (detecta pela extensão):
 
-Para regerar `companies_data.js` a partir de uma planilha nova:
+- **`.xlsx`** (export antigo) — uma única aba com colunas: Nome da Empresa, Tipo da
+  empresa, Telefone de trabalho, Celular, Site Corporativo, Responsável, Número,
+  Complemento, Endereço, Cidade, Tipo de empresa, Estado, Razão Social, Bairro, CEP, É
+  cliente do Portal de Telemetria?, Status, Atendido por, Cliente de, Área(s) de
+  Atuação, Cliente estratégico. **Não tem coluna de e-mail nem ID real** — o script
+  gera ID sequencial e faz backfill de e-mail a partir do `companies_data.js` atual.
+- **`.csv`** (export completo do CRM, usado desde nov/2026) — separado por `;`, BOM
+  utf-8-sig, ~199 colunas (bem mais informação: CNPJ, LinkedIn, UTMs, dados bancários,
+  etc. — a maioria não usada no mapa hoje). Tem **ID real** da empresa (preservado
+  entre atualizações) e **e-mail direto** (coluna "Email de trabalho"). Tem duas
+  colunas chamadas "Cidade" (uma de texto livre com typos tipo "Taquari" em vez de
+  "Taquara", outra mais padronizada que o pandas renomeia pra "Cidade.1") — o script
+  usa "Cidade.1" como fonte principal e só cai pro "Cidade" livre quando a padronizada
+  estiver vazia.
+
+Para regerar `companies_data.js` a partir de uma planilha/export novo:
 ```
 pip install pandas openpyxl   # se ainda não instalado
-python3 scripts/build_companies_data.py caminho/para/COMPANY_novo.xlsx
+python3 scripts/build_companies_data.py caminho/para/COMPANY_novo.csv   # ou .xlsx
 ```
 
 O que o script faz:
@@ -58,16 +69,18 @@ O que o script faz:
   homônima não relacionada, tipo "Poá/SP", e posicionar a empresa no lugar errado
   silenciosamente).
 - Erros de digitação conhecidos ficam hardcoded em `MANUAL_FIXES` no topo do script
-  (ex.: "Panembi/RS" → Panambi/RS). Adicione novos casos ali conforme forem achados.
+  (ex.: "Panembi/RS" → Panambi/RS, "Moji-Mirim/SP" → Mogi Mirim/SP). Adicione novos
+  casos ali conforme forem achados.
 - Monta o campo `end` (endereço completo) juntando Endereço + Número + Complemento +
   Bairro + CEP numa única string formatada, removendo um resíduo tipo "(, )"/"(0, 0)"
   que a planilha às vezes deixa no fim do Endereço (placeholder de coordenada não
-  preenchido). Só ~493 das 2.015 linhas têm Endereço preenchido — as demais ficam com
+  preenchido). Nem toda empresa tem Endereço preenchido — as demais ficam com
   `end: null` (exibido como "Não informado" no painel de detalhes).
-- Como a planilha não tem mais e-mail, o script faz backfill do campo `em` a partir do
-  `companies_data.js` atual, casando por nome da empresa normalizado — empresas novas
-  ou com nome muito diferente do anterior ficam sem e-mail (`em: null`, exibido como
-  "Não informado" no painel de detalhes).
+- **ID**: no `.csv`, usa o ID real da coluna "ID" (preserva identidade entre
+  atualizações); no `.xlsx` (que não tem ID), gera sequencial.
+- **E-mail**: no `.csv`, usa a coluna "Email de trabalho" direto; só recorre ao
+  backfill do `companies_data.js` atual (por nome normalizado) pra linhas sem e-mail
+  na fonte, ou no caso do `.xlsx` antigo, que não tem essa coluna.
 - Gera `scripts/geocode_report.txt` (não versionado) listando toda aproximação/fuzzy
   match/erro, pra revisão manual se necessário.
 
@@ -78,7 +91,7 @@ npm install lib-city-br --no-save
 node -e "require('fs').writeFileSync('scripts/cities_br.json', JSON.stringify(require('lib-city-br/data.min.json')))"
 ```
 
-A planilha original (`.xlsx`) não fica versionada no repositório — só o resultado
+A planilha/CSV original não fica versionada no repositório — só o resultado
 processado (`companies_data.js`).
 
 ## Funcionalidades já implementadas
